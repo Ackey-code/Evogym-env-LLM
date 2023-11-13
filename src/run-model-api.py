@@ -47,8 +47,8 @@ def check_columns(lst):
 
     return True
 
-def process_neighbour(i, j, grid, object_cells):
-    if i<0 or j<0 or i>=len(grid) or j>=len(grid[0]) or grid[i][j] == "-":
+def process_neighbour(i, j, grid, object_cells, object_type):
+    if i < 0 or j < 0 or i >= len(grid) or j >= len(grid[0]) or grid[i][j] == "-":
         return
 
     cell = (len(grid)-1-i)*len(grid[0]) + j  # fixed here
@@ -58,10 +58,13 @@ def process_neighbour(i, j, grid, object_cells):
 
     object_cells.append(cell)
 
-    process_neighbour(i+1, j, grid, object_cells)
-    process_neighbour(i-1, j, grid, object_cells)
-    process_neighbour(i, j+1, grid, object_cells)
-    process_neighbour(i, j-1, grid, object_cells)
+    # Add the current cell's type to the object_type list
+    object_type.append(grid[i][j])
+
+    process_neighbour(i+1, j, grid, object_cells, object_type)
+    process_neighbour(i-1, j, grid, object_cells, object_type)
+    process_neighbour(i, j+1, grid, object_cells, object_type)
+    process_neighbour(i, j-1, grid, object_cells, object_type)
 
 def create_json_file(env_list):
     grid = [list(row) for row in env_list]
@@ -82,11 +85,22 @@ def create_json_file(env_list):
         for j in range(len(grid[i])):
             if grid[i][j] == 'H' or grid[i][j] == 'S':
                 new_object_indices = []
+                new_object_type = []
 
-                process_neighbour(i, j, grid, new_object_indices)
+                process_neighbour(i, j, grid, new_object_indices, new_object_type)
 
-                # Modified: 'H' is represented as 5 and 'S' as 2
-                new_object_types = [5 if grid[(len(grid)-1-idx//grid_width)][idx%grid_width] == 'H' else 2 for idx in new_object_indices]
+                # Initialize new_object_types with 'S' as 2 and 'H' as 5
+                new_object_types = [5 if t == 'H' else 2 for t in new_object_type]
+
+                # Modify the object type based on the requirements
+                s_count = 0
+                for k, t in enumerate(new_object_type):
+                    if t == 'S':
+                        s_count += 1
+                        if k == 0 or k == len(new_object_type) - 1 or s_count == 5:
+                            new_object_types[k] = 5  # Convert to 'H'
+                            s_count = 0
+
                 new_object = {}
                 new_object['indices'] = new_object_indices
                 new_object['types'] = new_object_types
@@ -120,12 +134,11 @@ def generate_env(prompt):
 
     return json_env, fixed_list
 
-# json形式から文字列リストに逆変換するテスト用関数
 def recreate_fixed_list(json_env):
     """
     Recreates the fixed_list from the json_env object with inverted y-axis.
     The json_env contains information about different objects, their indices in a grid,
-    and their types (represented as 1 for 'H' and 2 for 'S').
+    and their types (represented as 5 for 'H' and 2 for 'S').
     The grid is reconstructed into a list of strings, each representing a row, with an inverted y-axis.
     """
     grid_width = json_env['grid_width']
@@ -138,14 +151,12 @@ def recreate_fixed_list(json_env):
     # Populate the grid with objects, inverting the y-axis
     for obj in objects.values():
         indices = obj['indices']
-        #obj_type = 'H' if 1 in obj['types'] else 'S'
-        # typeはここで対応させる．Hをif 5と変更
-        obj_type = 'H' if 5 in obj['types'] else 'S'
+        types = obj['types']
 
-        for index in indices:
+        for index, obj_type in zip(indices, types):
             x = index % grid_width
             y = grid_height - 1 - (index // grid_width)  # Invert the y-axis
-            grid[y][x] = obj_type
+            grid[y][x] = 'H' if obj_type == 5 else 'S'  # 'H' for 5 and 'S' for 2
 
     # Convert grid rows to strings
     fixed_list = [''.join(row) for row in grid]
@@ -154,7 +165,7 @@ def recreate_fixed_list(json_env):
 
 
 def main():
-    prompt = "100*20 size Evolution Gym environment that is difficult."
+    prompt = "100*20 size Evolution Gym environment that is simple with soft block."
     json_env, fixed_list = generate_env(prompt)
     for s in fixed_list:
         print(s)
