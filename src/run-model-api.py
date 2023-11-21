@@ -18,6 +18,25 @@ def create_env(prompt):
     env_list = eval(response['choices'][0]['message']['content'])
     return env_list
 
+def create_prompt(prompt):
+    model_id = "gpt-4"
+    # few shot prompting
+    response = openai.ChatCompletion.create(
+        model = model_id,
+        messages=[
+            {"role": "system", "content": "The prompt describes an two dimensional environment for reinforcement learning, where the task is to learn to move from left to right. Please return a prompt within 100 characters that describes a slightly more difficult environment than the one described in the sent prompt, using words like stairs, hole, wall, shaped mountain, shaped valley, easy, difficult to describe the shape. The reinforcement learning environment consists only of square hard and soft blocks, and the arrangement of these blocks is described in the prompt. There are no other functional blocks. There are no physical forces in this environment other than gravity. Do not alter the phrase 100*20 size Evolution Gym environment."},
+            {"role": "user", "content": "100*20 size Evolution Gym environment that is simple."},
+            {"role": "assistant", "content": "100*20 size Evolution Gym environment that is simple with some small holes."},
+            {"role": "user", "content": "100*20 size Evolution Gym environment that is simple with some small holes."},
+            {"role": "assistant", "content": "100*20 size Evolution Gym environment that is shaped like mountain."},
+            {"role": "user", "content": "100*20 size Evolution Gym environment that is shaped like mountain."},
+            {"role": "assistant", "content": "00*20 size Evolution Gym environment that is a little difficult."},            
+            {"role": "user", "content": prompt}
+        ]
+    )
+    mutated_prompt = response['choices'][0]['message']['content']
+    return mutated_prompt
+
 def adjust_list(lst):
     adjusted_list = []
     for s in lst:
@@ -165,7 +184,8 @@ def recreate_fixed_list(json_env):
 
 
 def main():
-    prompt = "100*20 size Evolution Gym environment that is simple with soft block."
+    prompt = create_prompt('100*20 size Evolution Gym environment that is simple.')
+    print('prompt: ',prompt)
     json_env, fixed_list = generate_env(prompt)
     for s in fixed_list:
         print(s)
