@@ -1,6 +1,7 @@
 import openai
 import os
 import json
+import random
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 def create_env(prompt):
@@ -20,6 +21,11 @@ def create_env(prompt):
 
 def create_prompt(prompt):
     model_id = "gpt-4"
+
+    # 50% chance to return the original prompt
+    if random.random() < 0.5:
+        return prompt
+    
     # few shot prompting
     response = openai.ChatCompletion.create(
         model = model_id,
