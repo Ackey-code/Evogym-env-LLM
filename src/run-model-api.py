@@ -44,7 +44,8 @@ def create_prompt(prompt):
     return mutated_prompt
 
 def adjust_list(lst):
-    adjusted_list = []
+    # Initialize with 5 lines of hyphens
+    adjusted_list = ['-' * 100 for _ in range(5)]
     for s in lst:
         s = ''.join(c if c in "-HS" else '-' for c in s)
         
@@ -54,7 +55,8 @@ def adjust_list(lst):
             adjusted_list.append(s + '-'*(100 - len(s)))
         else:
             adjusted_list.append(s[:100])
-    adjusted_list.extend(['-' * 100 for _ in range(7)])
+    # Extend with 7 lines of hyphens at the end
+    adjusted_list.extend(['-' * 100 for _ in range(7)])   
     return adjusted_list
 
 def check_columns(lst):
