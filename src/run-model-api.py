@@ -87,6 +87,27 @@ def process_neighbour(i, j, grid, object_cells, object_type, processed_cells):
     process_neighbour(i, j+1, grid, object_cells, object_type, processed_cells)
     process_neighbour(i, j-1, grid, object_cells, object_type, processed_cells)
 
+def remove_isolated_objects(json_env):
+    """
+    Remove isolated blocks (objects with only one index) from the json_env.
+    
+    :param json_env: The original environment JSON object.
+    :return: The modified environment JSON object without isolated blocks.
+    """
+    fixed_json_env = json_env.copy()
+    objects_to_remove = []
+
+    # Identify isolated objects
+    for obj_name, obj_details in json_env['objects'].items():
+        if len(obj_details['indices']) == 1:
+            objects_to_remove.append(obj_name)
+
+    # Remove isolated objects
+    for obj_name in objects_to_remove:
+        del fixed_json_env['objects'][obj_name]
+
+    return fixed_json_env
+
 
 def create_json_file(env_list):
     grid = [list(row) for row in env_list]
@@ -144,7 +165,9 @@ def create_json_file(env_list):
     return_dict['start_height'] = start_height
     return_dict['objects'] = objects_dict
 
-    return return_dict
+    json_env = remove_isolated_objects(return_dict)
+
+    return json_env
 
 def generate_env(prompt):
     checked_list = False
@@ -187,16 +210,26 @@ def recreate_fixed_list(json_env):
     return fixed_list
 
 def main():
-    prompt = create_prompt('100*20 size Evolution Gym environment that is simple.')
-    print('prompt: ',prompt)
-    json_env, fixed_list = generate_env(prompt)
-    for s in fixed_list:
-        print(s)
-    print(json_env)
+    # prompt = create_prompt('100*20 size Evolution Gym environment that is simple.')
+    # print('prompt: ',prompt)
+    # json_env, fixed_list = generate_env(prompt)
+    # for s in fixed_list:
+    #     print(s)
+    # print(json_env)
 
-    re_list = recreate_fixed_list(json_env)
-    for s in re_list:
+    # re_list = recreate_fixed_list(json_env)
+    # for s in re_list:
+    #     print(s)
+
+    test_list = ['----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', 'HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH--------------------------------------------------', '----------------------------------------------------------------------------------------------HHHHHH', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '-------------------------------------------------------S--------------------------S-----------------', '---------------------------S-----------S---------------SSSS------H-----SSSSSS-----H-----------------', '------S-----H-----HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH--', 'HHHHHHHHHHHH----------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------']  
+    test_json = create_json_file(test_list)
+    
+    for s in test_list:
         print(s)
+    print(test_json)
+    
+    for t in recreate_fixed_list(test_json):
+        print(t)
 
 if __name__ == "__main__":
     main()
