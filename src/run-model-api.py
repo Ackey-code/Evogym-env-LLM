@@ -122,17 +122,23 @@ def create_json_file(env_list):
 
 def generate_env(prompt):
     checked_list = False
-
+    count = 0
     while not checked_list:
-        env_list = create_env(prompt)
-        fixed_list = adjust_list(env_list)
-        checked_list = check_columns(fixed_list)
+        count += 1
+        if count > 10:
+            print('over 10 times generated')
+            break
         try:
+            env_list = create_env(prompt)
+            fixed_list = adjust_list(env_list)
+            checked_list = check_columns(fixed_list)
             json_env = create_json_file(fixed_list)
+            
         except:
+            print('re generate env')
             checked_list = False
 
-    return json_env, fixed_list
+    return json_env
 
 def recreate_fixed_list(json_env):
     """
@@ -165,7 +171,7 @@ def recreate_fixed_list(json_env):
 
 
 def main():
-    prompt = "100*20 size Evolution Gym environment that is simple with soft block."
+    prompt = "100*20 size Evolution Gym environment that is shaped mountain."
     json_env, fixed_list = generate_env(prompt)
     for s in fixed_list:
         print(s)
