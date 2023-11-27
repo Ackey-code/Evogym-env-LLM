@@ -87,28 +87,6 @@ def process_neighbour(i, j, grid, object_cells, object_type, processed_cells):
     process_neighbour(i, j+1, grid, object_cells, object_type, processed_cells)
     process_neighbour(i, j-1, grid, object_cells, object_type, processed_cells)
 
-def remove_isolated_objects(json_env):
-    """
-    Remove isolated blocks (objects with only one index) from the json_env.
-    
-    :param json_env: The original environment JSON object.
-    :return: The modified environment JSON object without isolated blocks.
-    """
-    fixed_json_env = json_env.copy()
-    objects_to_remove = []
-
-    # Identify isolated objects
-    for obj_name, obj_details in json_env['objects'].items():
-        if len(obj_details['indices']) == 1:
-            objects_to_remove.append(obj_name)
-
-    # Remove isolated objects
-    for obj_name in objects_to_remove:
-        del fixed_json_env['objects'][obj_name]
-
-    return fixed_json_env
-
-
 def create_json_file(env_list):
     grid = [list(row) for row in env_list]
     objects_dict = dict()
@@ -165,9 +143,79 @@ def create_json_file(env_list):
     return_dict['start_height'] = start_height
     return_dict['objects'] = objects_dict
 
-    json_env = remove_isolated_objects(return_dict)
+    return return_dict
 
-    return json_env
+def adjust_overlapping_boxes(grid):
+    """
+    Adjust the grid so that if bounding boxes of objects overlap, the blocks (S or H) in the overlapping 
+    area of the object with the right-side bounding box are replaced with '-'.
+    """
+    rows = len(grid)
+    cols = len(grid[0])
+
+    def is_block(r, c):
+        return grid[r][c] in {'H', 'S'}
+
+    def get_neighbors(r, c):
+        """Get valid neighboring blocks."""
+        neighbors = []
+        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            nr, nc = r + dr, c + dc
+            if 0 <= nr < rows and 0 <= nc < cols and is_block(nr, nc):
+                neighbors.append((nr, nc))
+        return neighbors
+
+    visited = set()
+    object_details = []
+
+    for r in range(rows):
+        for c in range(cols):
+            if is_block(r, c) and (r, c) not in visited:
+                # Start a new object
+                queue = [(r, c)]
+                visited.add((r, c))
+                min_row, min_col, max_row, max_col = r, c, r, c
+                object_blocks = set()
+
+                while queue:
+                    cr, cc = queue.pop(0)
+                    object_blocks.add((cr, cc))
+                    for nr, nc in get_neighbors(cr, cc):
+                        if (nr, nc) not in visited:
+                            visited.add((nr, nc))
+                            queue.append((nr, nc))
+                            min_row, min_col = min(min_row, nr), min(min_col, nc)
+                            max_row, max_col = max(max_row, nr), max(max_col, nc)
+
+                object_details.append(((min_row, min_col), (max_row, max_col), object_blocks))
+
+    # Sort objects by their top-left corner's x-coordinate
+    object_details.sort(key=lambda x: x[0][1])
+
+    # Function to check if two boxes overlap
+    def boxes_overlap(box1, box2):
+        (tl1, br1) = box1
+        (tl2, br2) = box2
+        return not (br1[1] < tl2[1] or br2[1] < tl1[1] or br1[0] < tl2[0] or br2[0] < tl1[0])
+
+    # Modify the grid based on overlapping bounding boxes
+    for i in range(len(object_details)):
+        for j in range(i + 1, len(object_details)):
+            box1, blocks1 = object_details[i][:2], object_details[i][2]
+            box2, blocks2 = object_details[j][:2], object_details[j][2]
+
+            if boxes_overlap(box1, box2):
+                overlap_area = set()
+                for r in range(max(box1[0][0], box2[0][0]), min(box1[1][0], box2[1][0]) + 1):
+                    for c in range(max(box1[0][1], box2[0][1]), min(box1[1][1], box2[1][1]) + 1):
+                        if (r, c) in blocks2:
+                            overlap_area.add((r, c))
+
+                # Replace overlapping blocks in the right-side box with '-'
+                for r, c in overlap_area:
+                    grid[r] = grid[r][:c] + '-' + grid[r][c + 1:]
+
+    return grid
 
 def generate_env(prompt):
     checked_list = False
@@ -179,11 +227,12 @@ def generate_env(prompt):
         try:
             env_list = create_env(prompt)
             fixed_list = adjust_list(env_list)
-            checked_list = check_columns(fixed_list)
-            json_env = create_json_file(fixed_list)
+            env_list = adjust_overlapping_boxes(fixed_list)
+            checked_list = check_columns(env_list)
+            json_env = create_json_file(env_list)
         except:
             checked_list = False
-    return json_env, fixed_list
+    return json_env, env_list
 
 def recreate_fixed_list(json_env):
     """
@@ -210,26 +259,16 @@ def recreate_fixed_list(json_env):
     return fixed_list
 
 def main():
-    # prompt = create_prompt('100*20 size Evolution Gym environment that is simple.')
-    # print('prompt: ',prompt)
-    # json_env, fixed_list = generate_env(prompt)
-    # for s in fixed_list:
-    #     print(s)
-    # print(json_env)
-
-    # re_list = recreate_fixed_list(json_env)
-    # for s in re_list:
-    #     print(s)
-
-    test_list = ['----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', 'HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH--------------------------------------------------', '----------------------------------------------------------------------------------------------HHHHHH', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '-------------------------------------------------------S--------------------------S-----------------', '---------------------------S-----------S---------------SSSS------H-----SSSSSS-----H-----------------', '------S-----H-----HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH--', 'HHHHHHHHHHHH----------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------', '----------------------------------------------------------------------------------------------------']  
-    test_json = create_json_file(test_list)
-    
-    for s in test_list:
+    prompt = create_prompt('100*20 size Evolution Gym environment that is simple.')
+    print('prompt: ',prompt)
+    json_env, env_list = generate_env(prompt)
+    for s in env_list:
         print(s)
-    print(test_json)
-    
-    for t in recreate_fixed_list(test_json):
-        print(t)
+    print(json_env)
+
+    re_list = recreate_fixed_list(json_env)
+    for s in re_list:
+        print(s)
 
 if __name__ == "__main__":
     main()
