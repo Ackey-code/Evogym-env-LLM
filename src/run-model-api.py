@@ -147,8 +147,8 @@ def create_json_file(env_list):
 
 def adjust_overlapping_boxes(grid):
     """
-    Adjust the grid so that if bounding boxes of objects overlap, the blocks (S or H) in the overlapping 
-    area of the object with the right-side bounding box are replaced with '-'.
+    Adjust the grid so that if bounding boxes of objects overlap, all blocks (S or H) in the overlapping 
+    area are replaced with '-'.
     """
     rows = len(grid)
     cols = len(grid[0])
@@ -166,8 +166,9 @@ def adjust_overlapping_boxes(grid):
         return neighbors
 
     visited = set()
-    object_details = []
+    bounding_boxes = []
 
+    # Identifying the bounding boxes of each object
     for r in range(rows):
         for c in range(cols):
             if is_block(r, c) and (r, c) not in visited:
@@ -175,11 +176,9 @@ def adjust_overlapping_boxes(grid):
                 queue = [(r, c)]
                 visited.add((r, c))
                 min_row, min_col, max_row, max_col = r, c, r, c
-                object_blocks = set()
 
                 while queue:
                     cr, cc = queue.pop(0)
-                    object_blocks.add((cr, cc))
                     for nr, nc in get_neighbors(cr, cc):
                         if (nr, nc) not in visited:
                             visited.add((nr, nc))
@@ -187,10 +186,7 @@ def adjust_overlapping_boxes(grid):
                             min_row, min_col = min(min_row, nr), min(min_col, nc)
                             max_row, max_col = max(max_row, nr), max(max_col, nc)
 
-                object_details.append(((min_row, min_col), (max_row, max_col), object_blocks))
-
-    # Sort objects by their top-left corner's x-coordinate
-    object_details.sort(key=lambda x: x[0][1])
+                bounding_boxes.append(((min_row, min_col), (max_row, max_col)))
 
     # Function to check if two boxes overlap
     def boxes_overlap(box1, box2):
@@ -198,20 +194,17 @@ def adjust_overlapping_boxes(grid):
         (tl2, br2) = box2
         return not (br1[1] < tl2[1] or br2[1] < tl1[1] or br1[0] < tl2[0] or br2[0] < tl1[0])
 
-    # Modify the grid based on overlapping bounding boxes
-    for i in range(len(object_details)):
-        for j in range(i + 1, len(object_details)):
-            box1, blocks1 = object_details[i][:2], object_details[i][2]
-            box2, blocks2 = object_details[j][:2], object_details[j][2]
-
+    # Marking overlapping areas for replacement
+    for i in range(len(bounding_boxes)):
+        for j in range(i + 1, len(bounding_boxes)):
+            box1, box2 = bounding_boxes[i], bounding_boxes[j]
             if boxes_overlap(box1, box2):
                 overlap_area = set()
                 for r in range(max(box1[0][0], box2[0][0]), min(box1[1][0], box2[1][0]) + 1):
                     for c in range(max(box1[0][1], box2[0][1]), min(box1[1][1], box2[1][1]) + 1):
-                        if (r, c) in blocks2:
-                            overlap_area.add((r, c))
+                        overlap_area.add((r, c))
 
-                # Replace overlapping blocks in the right-side box with '-'
+                # Replace overlapping blocks with '-'
                 for r, c in overlap_area:
                     grid[r] = grid[r][:c] + '-' + grid[r][c + 1:]
 
@@ -258,7 +251,59 @@ def recreate_fixed_list(json_env):
     fixed_list = [''.join(row) for row in grid]
     return fixed_list
 
+def find_bounding_boxes(grid):
+    """
+    Find bounding boxes of connected 'H' and 'S' blocks in the grid.
+    A bounding box is represented by the coordinates of its top-left and bottom-right corners.
+    """
+    rows = len(grid)
+    cols = len(grid[0])
+
+    def is_block(r, c):
+        return grid[r][c] in {'H', 'S'}
+
+    def get_neighbors(r, c):
+        """Get valid neighboring blocks."""
+        neighbors = []
+        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            nr, nc = r + dr, c + dc
+            if 0 <= nr < rows and 0 <= nc < cols and is_block(nr, nc):
+                neighbors.append((nr, nc))
+        return neighbors
+
+    visited = set()
+    bounding_boxes = []
+
+    for r in range(rows):
+        for c in range(cols):
+            if is_block(r, c) and (r, c) not in visited:
+                # Start a new object
+                queue = [(r, c)]
+                visited.add((r, c))
+                min_row, min_col, max_row, max_col = r, c, r, c
+
+                while queue:
+                    cr, cc = queue.pop(0)
+                    for nr, nc in get_neighbors(cr, cc):
+                        if (nr, nc) not in visited:
+                            visited.add((nr, nc))
+                            queue.append((nr, nc))
+                            min_row, min_col = min(min_row, nr), min(min_col, nc)
+                            max_row, max_col = max(max_row, nr), max(max_col, nc)
+
+                bounding_boxes.append(((min_row, min_col), (max_row, max_col)))
+
+    return bounding_boxes
+
+# Function to print the bounding box area from the grid
+def print_bounding_box(grid, box):
+    top_left, bottom_right = box
+    for row in range(top_left[0], bottom_right[0] + 1):
+        print(grid[row][top_left[1]:bottom_right[1] + 1])
+
+
 def main():
+    """
     prompt = create_prompt('100*20 size Evolution Gym environment that is simple.')
     print('prompt: ',prompt)
     json_env, env_list = generate_env(prompt)
@@ -269,6 +314,55 @@ def main():
     re_list = recreate_fixed_list(json_env)
     for s in re_list:
         print(s)
+    """
+    test_list1 = [
+                    '----------------------------------------------------------------------------------------------------',
+                    '----------------------------------------------------------------------------------------------------',
+                    '----------------------------------------------------------------------------------------------------',
+                    '----------------------------------------------------------------------------------------------------',
+                    '----------------------------------------------------------------------------------------------------',
+                    '----------------------------------------------------------------------------------------------------',
+                    '----------------------------------------------------------------------------------------------------',
+                    '----------------------------------------------------------------------------------------------------',
+                    '----------------------------------------------------------------------------------------------------',
+                    '----------------------------------------------------------------------------------------------------',
+                    '----------------------------------------------------------------------------------------------------',
+                    '----------------------------------------------------------------------------------------------------',
+                    '----------------------------------------------------------------------------------------------------',
+                    '----------------------------------------------------------------------------------------------------',
+                    '---------------------------------------------------HHHHHH-------------------------------------------',
+                    '------------------------------------------------HHHH------------------------------------------------',
+                    '----------------------------------------------HHH---------------------------------------------------',
+                    '-----------------------------------HHHH----HHHH-----------------------------------------------------',
+                    'HH---------------------------------HH-----H---------------------------------------------------------',
+                    'H-------------------HHHHHHHHH--------------------------HHHHHHHHHHHHHHHH----------------HHHH---------',
+                    '--------------------H-------H-------------------HHHHHHHH-------------------------------H------------',
+                    '--------------------H-------H-------HHHHHHHHHHHHH---------------------------HHHHHHHHHHHHH--HHHHHHH--',
+                    'HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH-------------------------------------HHHHHHHHHHHHHH----------',
+                    '--------------------------------------------------------------------HHHHHHHHH-----------------------',
+                    '----------------------------------------------------------------HHHHH-------------------------------',
+                    '----------------------------------------------------------------------------------------------------',
+                    '----------------------------------------------------------------------------------------------------',
+                    '----------------------------------------------------------------------------------------------------',
+                    '----------------------------------------------------------------------------------------------------',
+                    '----------------------------------------------------------------------------------------------------',
+                    '----------------------------------------------------------------------------------------------------',
+                    '----------------------------------------------------------------------------------------------------'
+    ]
+
+    env_list = adjust_overlapping_boxes(test_list1)
+
+    # Printing the adjusted grid
+    for line in env_list:
+        print(line)
+
+    # bounding_boxes = find_bounding_boxes(test_list1)
+
+    # # Printing each bounding box area
+    # for box in bounding_boxes:
+    #     print(box)
+    #     print_bounding_box(test_list1, box)
+    #     print("\n")
 
 if __name__ == "__main__":
     main()
