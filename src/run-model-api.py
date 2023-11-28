@@ -98,7 +98,7 @@ def create_json_file(env_list):
     # Initialize start_height with the minimum value
     start_height = 1  # Start from the bottom row (1)
     for i in range(grid_height):
-        for j in range(min(5, grid_width)):  # Check only the first 5 columns
+        for j in range(min(6, grid_width)):  # Check only the first 6 columns
             if grid[i][j] == 'H' or grid[i][j] == 'S':
                 start_height = max(start_height, grid_height - i)
 
